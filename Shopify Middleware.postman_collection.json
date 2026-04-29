@@ -1,0 +1,210 @@
+{
+  "info": {
+    "_postman_id": "7c8c533f-78af-4a36-99e9-4ab1be85afd6",
+    "name": "Shopify Middleware",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "2815718"
+  },
+  "item": [
+    {
+      "name": "Order Create",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"id\": 1234567898,\r\n  \"email\": \"customer01@example.com\",\r\n  \"total_price\": \"199.99\",\r\n  \"currency\": \"USD\",\r\n  \"line_items\": [\r\n    {\r\n      \"product_id\": \"PROD002\",\r\n      \"variant_id\": \"VAR001\",\r\n      \"sku\": \"SKU-0001\",\r\n      \"quantity\": 2,\r\n      \"price\": \"99.99\",\r\n      \"title\": \"Test Product\"\r\n    }\r\n  ]\r\n}\r\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:3000/webhook/order-created",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "webhook",
+            "order-created"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Inventory update",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"sku\": \"SKU-PROD001\", \"quantity\": 25 }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:3000/webhook/inventory-update",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "webhook",
+            "inventory-update"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Find by Shopify order ID",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/orders/shopify/1234567897",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "orders",
+            "shopify",
+            "1234567897"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Single order",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/orders/13",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "orders",
+            "13"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Count by status",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/orders/stats",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "orders",
+            "stats"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "List orders",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/orders",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "orders"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Health",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/health",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "health"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Health Copy",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/health",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "health"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
