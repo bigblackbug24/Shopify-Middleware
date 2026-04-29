@@ -1,0 +1,22 @@
+# Environment — NEVER commit this
+.env
+
+# Dependencies
+node_modules/
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Developer guides — local only, not for Git
+GUIDE.md
+GIT_COMMIT_PLAN.md
+src/INTERVIEW_PREP.md

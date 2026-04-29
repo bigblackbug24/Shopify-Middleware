@@ -1,0 +1,137 @@
+version: '3.8'
+
+# ─────────────────────────────────────────────────────────────────────
+# Shared environment variables for api + worker containers
+# ─────────────────────────────────────────────────────────────────────
+x-app-env: &app-env
+  NODE_ENV: development
+  PORT: 3000
+
+  # MySQL — points to the mysql service name (not 127.0.0.1)
+  DB_HOST: mysql
+  DB_PORT: 3306
+  DB_NAME: shopify_middleware
+  DB_USER: root
+  DB_PASSWORD: secret
+
+  # Redis — points to the redis service name
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  REDIS_PASSWORD: ""
+
+  # Shopify — change these when you have a real store
+  SHOPIFY_STORE_DOMAIN: your-store.myshopify.com
+  SHOPIFY_ACCESS_TOKEN: shpat_xxxxxxxxxxxxxxxx
+  SHOPIFY_WEBHOOK_SECRET: your_webhook_secret_here
+  SHOPIFY_API_VERSION: "2024-01"
+
+  # Queue settings
+  QUEUE_NAME: order-processing
+  QUEUE_CONCURRENCY: "5"
+  JOB_MAX_ATTEMPTS: "3"
+  JOB_BACKOFF_DELAY: "5000"
+
+  # Logging
+  LOG_LEVEL: info
+  LOG_FILE: logs/app.log
+
+  # Dev flags — mock Shopify so no real store needed
+  USE_MOCK_SHOPIFY: "true"
+  SKIP_HMAC_VERIFY: "true"
+
+services:
+
+  # ── MySQL ───────────────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: shopify_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_DATABASE: shopify_middleware
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-psecret"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── Redis ───────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: shopify_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Migrate ─────────────────────────────────────────────────────────
+  # Runs once on startup — creates tables then exits
+  migrate:
+    build: .
+    container_name: shopify_migrate
+    command: npm run migrate
+    environment:
+      <<: *app-env
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  # ── API Server ──────────────────────────────────────────────────────
+  api:
+    build: .
+    container_name: shopify_api
+    command: node src/server.js
+    environment:
+      <<: *app-env
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # ── Worker ──────────────────────────────────────────────────────────
+  worker:
+    build: .
+    container_name: shopify_worker
+    command: node src/workers/workerRunner.js
+    environment:
+      <<: *app-env
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+  redis_data:
