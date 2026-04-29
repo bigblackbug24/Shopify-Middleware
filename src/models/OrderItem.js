@@ -8,21 +8,13 @@ class OrderItem {
 
   /**
    * Bulk insert all line items for an order.
-   * Handles both DTO shape (productId/variantId) and
-   * raw Shopify shape (product_id/variant_id).
-   *
-   * @param {number} orderId    - Internal DB order ID (orders.id)
-   * @param {Array}  lineItems  - Line items from DTO or raw payload
-   * @param {Object} [trx]      - Optional Knex transaction
-   * @returns {Promise<Array>}
    */
   static async bulkCreate(orderId, lineItems, trx = db) {
     const rows = lineItems.map((item) => ({
       order_id:   orderId,
-      // Support both DTO shape (camelCase) and raw Shopify shape (snake_case)
       product_id: String(item.productId  || item.product_id),
       variant_id: String(item.variantId  || item.variant_id),
-      sku:        item.sku || null,   // from webhook payload directly
+      sku:        item.sku || null,
       quantity:   item.quantity,
       price:      parseFloat(item.price),
     }));
@@ -31,16 +23,8 @@ class OrderItem {
   }
 
   /**
-   * Update a single order item with enriched GraphQL data.
-   * Called by worker after fetching product details from Shopify.
-   *
-   * @param {number} orderId
-   * @param {string} productId
-   * @param {Object} enrichedData
-   * @param {string} [enrichedData.product_title]
-   * @param {string} [enrichedData.variant_sku]
-   * @param {string} [enrichedData.variant_price]
-   * @returns {Promise<number>} Rows updated
+   * Update enriched GraphQL data on order items.
+   * Called by order worker after fetching product details.
    */
   static async updateEnrichedData(orderId, productId, enrichedData) {
     return db(this.TABLE)
@@ -53,20 +37,40 @@ class OrderItem {
   }
 
   /**
-   * Get all items for a given order.
+   * Update synced_quantity for all order_items matching a SKU.
    *
-   * @param {number} orderId
-   * @returns {Promise<Array>}
+   * Called by inventory worker AFTER successfully pushing the update to Shopify.
+   * This keeps our DB in sync so GET /orders/:id shows the latest stock level.
+   *
+   * NOTE: We update synced_quantity — NOT quantity.
+   *   quantity        = how many units the customer ordered (immutable)
+   *   synced_quantity = current stock level we pushed to Shopify
+   *
+   * @param {string} sku      - SKU that was updated
+   * @param {number} quantity - New stock level pushed to Shopify
+   * @returns {Promise<number>} Number of rows updated
+   */
+  static async updateSyncedQuantity(sku, quantity) {
+    return db(this.TABLE)
+      .where(function () {
+        this.where({ sku: String(sku) })
+            .orWhere({ variant_sku: String(sku) });
+      })
+      .update({
+        synced_quantity: quantity,
+        synced_at:       db.fn.now(),
+      });
+  }
+
+  /**
+   * Get all items for a given order.
    */
   static async findByOrderId(orderId) {
     return db(this.TABLE).where({ order_id: orderId });
   }
 
   /**
-   * Find all orders containing a specific product — analytics query.
-   *
-   * @param {string} productId
-   * @returns {Promise<Array>}
+   * Find all orders containing a specific product.
    */
   static async findByProductId(productId) {
     return db(this.TABLE)
@@ -84,14 +88,9 @@ class OrderItem {
    * Find the most recent order_item record for a given SKU.
    * Used by inventory worker to map SKU → variant_id.
    *
-   * Checks both the direct `sku` column (from webhook payload)
-   * and `variant_sku` (enriched from GraphQL) for maximum coverage.
-   *
-   * @param {string} sku
-   * @returns {Promise<Object|undefined>}
+   * Checks direct sku column first, then variant_sku (enriched from GraphQL).
    */
   static async findVariantBySku(sku) {
-    // Try direct sku column first (set at order time)
     const byDirectSku = await db(this.TABLE)
       .where({ sku: String(sku) })
       .orderBy('created_at', 'desc')
@@ -99,7 +98,6 @@ class OrderItem {
 
     if (byDirectSku) return byDirectSku;
 
-    // Fallback: try variant_sku (enriched from GraphQL)
     return db(this.TABLE)
       .where({ variant_sku: String(sku) })
       .orderBy('created_at', 'desc')
